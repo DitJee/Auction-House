@@ -1,0 +1,34 @@
+[package]
+name = "auction-house"
+version = "0.1.0"
+description = "Created with Anchor"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "auction_house"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[profile.release]
+overflow-checks = true
+
+[dependencies]
+anchor-lang = "0.24.2"
+anchor-spl = "~0.24.2"
+num-derive = "~0.3"
+num-traits = "~0.2"
+arrayref = "~0.3.6"
+solana-program = "~1.9.5"
+spl-token = { version="~3.2.0", features = [ "no-entrypoint" ] }
+thiserror = "~1.0"
+spl-associated-token-account = {version = "~1.0.3", features = ["no-entrypoint"]}
+
+[dev-dependencies]
+solana-program-test = "~1.9.5"
+solana-sdk = "~1.9.5"

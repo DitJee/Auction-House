@@ -1,16 +1,34 @@
 import * as anchor from "@project-serum/anchor";
 import { Program } from "@project-serum/anchor";
+import { expect } from "chai";
 
 import { AuctionHouse } from "../target/types/auction_house";
+import { createAuctionHouse, loadAuctionHouseProgram } from "./utils";
+import { loadWalletKey } from "./utils/constants";
 
 describe("auction-house", () => {
   // Configure the client to use the local cluster.
-  anchor.setProvider(anchor.AnchorProvider.env());
+  const env = "https://api.devnet.solana.com";
 
-  const program = anchor.workspace.AuctionHouse as Program<AuctionHouse>;
-  const programProvider = program.provider as anchor.AnchorProvider;
+  it("Should successfully create auction house", async () => {
+    // init
+    const _keypair = anchor.web3.Keypair.generate();
+    const walletKeyPair = loadWalletKey(_keypair.secretKey);
 
-  // TODO: add create_auction_house test
-
-  it("Should successfully create auction house", async () => {});
+    try {
+      await createAuctionHouse({
+        keypair: walletKeyPair,
+        env: "devnet",
+        sellerFeeBasisPoints: 1000,
+        canChangeSalePrice: false,
+        requiresSignOff: false,
+        treasuryWithdrawalDestination: null,
+        feeWithdrawalDestination: null,
+        treasuryMint: null,
+      });
+    } catch (error) {
+      expect(error.message).to.equal("error");
+      console.error(error);
+    }
+  });
 });

@@ -1,0 +1,265 @@
+{
+  "version": "0.1.0",
+  "name": "auction_house",
+  "instructions": [
+    {
+      "name": "createAuctionHouse",
+      "accounts": [
+        {
+          "name": "treasuryMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "feeWithdrawalDestination",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "treasuryWithdrawalDestination",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "treasuryWithdrawalDestinationOwner",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "auctionHouse",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "auctionHouseFeeAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "auctionHouseTreasury",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "ataProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "bump",
+          "type": "u8"
+        },
+        {
+          "name": "feePayerBump",
+          "type": "u8"
+        },
+        {
+          "name": "treasuryBump",
+          "type": "u8"
+        },
+        {
+          "name": "sellerFeeBasisPoints",
+          "type": "u16"
+        },
+        {
+          "name": "requiresSignOff",
+          "type": "bool"
+        },
+        {
+          "name": "canChangeSalePrice",
+          "type": "bool"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "AuctionHouse",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "auctionHouseFeeAccount",
+            "type": "publicKey"
+          },
+          {
+            "name": "auctionHouseTreasury",
+            "type": "publicKey"
+          },
+          {
+            "name": "treasuryWithdrawalDestination",
+            "type": "publicKey"
+          },
+          {
+            "name": "feeWithdrawalDestination",
+            "type": "publicKey"
+          },
+          {
+            "name": "treasuryMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "authority",
+            "type": "publicKey"
+          },
+          {
+            "name": "creator",
+            "type": "publicKey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "treasuryBump",
+            "type": "u8"
+          },
+          {
+            "name": "feePayerBump",
+            "type": "u8"
+          },
+          {
+            "name": "sellerFeeBasisPoints",
+            "type": "u16"
+          },
+          {
+            "name": "requiresSignOff",
+            "type": "bool"
+          },
+          {
+            "name": "canChangeSalePrice",
+            "type": "bool"
+          },
+          {
+            "name": "escrowPaymentBump",
+            "type": "u8"
+          },
+          {
+            "name": "hasAuctioneer",
+            "type": "bool"
+          },
+          {
+            "name": "auctioneerPdaBump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Auctioneer",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "auctioneerAuthority",
+            "type": "publicKey"
+          },
+          {
+            "name": "auctionHouse",
+            "type": "publicKey"
+          },
+          {
+            "name": "scopes",
+            "type": {
+              "array": [
+                "bool",
+                7
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "AuthorityScope",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Deposit"
+          },
+          {
+            "name": "Buy"
+          },
+          {
+            "name": "PublicBuy"
+          },
+          {
+            "name": "ExecuteSale"
+          },
+          {
+            "name": "Sell"
+          },
+          {
+            "name": "Cancel"
+          },
+          {
+            "name": "Withdraw"
+          }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "NotMutableAccount",
+      "msg": "The account is not mutable"
+    },
+    {
+      "code": 6001,
+      "name": "BumpSeedNotInHashMap",
+      "msg": "Bump seed not in hash map."
+    },
+    {
+      "code": 6002,
+      "name": "PublicKeyMismatch",
+      "msg": "Public keys are not matched"
+    },
+    {
+      "code": 6003,
+      "name": "IncorrectOwner",
+      "msg": "The given account is not an owner"
+    },
+    {
+      "code": 6004,
+      "name": "UninitializedAccount",
+      "msg": "Cannot initialized the account"
+    }
+  ],
+  "metadata": {
+    "address": "Er4qqGJpN9CkQWeUp1P87aWYzkCqd4NbbKi8vtoNfPUJ",
+    "origin": "anchor",
+    "binaryVersion": "0.24.2",
+    "libVersion": "0.24.2"
+  }
+}

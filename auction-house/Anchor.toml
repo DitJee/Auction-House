@@ -4,13 +4,13 @@ seeds = false
 auction_house = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
 
 [programs.devnet]
-auction_house = "4wjjERkgGiLwpJM26CWXVk3gQapZvQC8mGJ4DnrMwWvq"
+auction_house = "Er4qqGJpN9CkQWeUp1P87aWYzkCqd4NbbKi8vtoNfPUJ"
 
 [registry]
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "/home/jee/.config/solana/id.json"
 
 [scripts]

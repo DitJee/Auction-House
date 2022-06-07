@@ -22,7 +22,7 @@ use anchor_spl::{
 };
 // use program::AuctionHouse;
 
-anchor_lang::declare_id!("4wjjERkgGiLwpJM26CWXVk3gQapZvQC8mGJ4DnrMwWvq"); // NOTE: ProgramID for Dev
+declare_id!("Er4qqGJpN9CkQWeUp1P87aWYzkCqd4NbbKi8vtoNfPUJ"); // NOTE: ProgramID for Dev
 
 #[program]
 pub mod auction_house {

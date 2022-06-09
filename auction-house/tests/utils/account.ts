@@ -19,6 +19,7 @@ import {
   Connection,
 } from "@solana/web3.js";
 import { AuctionHouseTradeStateSeeds } from "./interfaces";
+import { createAssociatedTokenAccountInstruction } from "@solana/spl-token";
 
 export const getAtaForMint = async (
   mint: anchor.web3.PublicKey,
@@ -156,3 +157,5 @@ export const getMetadata = async (
 
   return metadataAddress;
 };
+
+export const sendTransactionWithRetryWithKeypair = async () => {};

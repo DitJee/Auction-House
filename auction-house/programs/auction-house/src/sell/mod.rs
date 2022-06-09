@@ -38,7 +38,7 @@ pub struct Sell<'info> {
 
     /// Auction House instance PDA account.
     /// PDA was seeded from PREFIX + Auction house's creator + Auction house's treasury mint
-    #[account(seeds = [PREFIX.as_bytes(), auction_house.creator.as_ref(), auction_house.treasury_mint.as_ref()], bump = auction_house.bump, has_one = auction_house_fee_account)]
+    #[account(seeds = [PREFIX.as_bytes(), auction_house.creator.as_ref(), auction_house.treasury_mint.as_ref()], bump = auction_house.bump,has_one=authority, has_one = auction_house_fee_account)]
     pub auction_house: Box<Account<'info, AuctionHouse>>,
 
     /// CHECK: Not dangerous. Account seeds checked in constraint.
@@ -137,7 +137,6 @@ pub fn sell_logic<'info>(
     buyer_price: u64,
     token_size: u64,
 ) -> Result<()> {
-    return Ok(());
     // NOTE: extract all variables from ctx (Sell struct)
     let wallet = &accounts.wallet;
     let token_account = &accounts.token_account;
@@ -241,7 +240,7 @@ pub fn sell_logic<'info>(
         )?;
     }
 
-    let data = &mut ts_info.try_borrow_mut_data()?;
+    let data = &mut ts_info.data.borrow_mut();
     data[0] = trade_state_bump;
 
     Ok(())

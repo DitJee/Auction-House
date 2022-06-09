@@ -1,11 +1,18 @@
 import * as anchor from "@project-serum/anchor";
+import { publicKey } from "@project-serum/anchor/dist/cjs/utils";
 import { expect } from "chai";
 
 import { AuctionHouse } from "../target/types/auction_house";
 import { createAuctionHouse, sell, showAuctionHouse } from "./utils";
 import { addSOLToWallet } from "./utils/account";
-import { loadWalletKey, MINT_ADDRESS_AMONGUS } from "./utils/constants";
+import {
+  loadWalletKey,
+  MINT_ADDRESS_AMONGUS,
+  MINT_ADDRESS_FLOWER_FIELD,
+} from "./utils/constants";
 import { SellAuctionHouseArgs } from "./utils/interfaces";
+
+import { base58_to_binary } from "base58-js";
 
 let auctionHouse: anchor.web3.PublicKey;
 let _keypair: anchor.web3.Keypair;
@@ -64,13 +71,22 @@ describe("auction-house", () => {
   it("should show auction sell information", async () => {
     // NOTE: init keys
     try {
+      const jeeKeypair: anchor.web3.Keypair = new anchor.web3.Keypair({
+        publicKey: new anchor.web3.PublicKey(
+          "ESz5bto4fkF68grek4cAhsfn7r9XBnG85RLZLkJRAzbE"
+        ).toBuffer(),
+        secretKey: base58_to_binary(
+          "4KVhGLcLJJqppjZb9MbDZSXCJp1Qh8Xr9sbVTeCboGrRRCaeJ2SvNkuGvs7kW5wPYJfSrjs75fcSLT3d86ncx9yN"
+        ),
+      });
+
       const sellArgs: SellAuctionHouseArgs = {
-        keypair: _keypair,
+        keypair: jeeKeypair,
         env: env,
         auctionHouse: auctionHouse,
         auctionHouseKeypair: null,
         buyPrice: 1,
-        mint: MINT_ADDRESS_AMONGUS,
+        mint: MINT_ADDRESS_FLOWER_FIELD,
         tokenSize: 1,
         auctionHouseSigns: false,
       };

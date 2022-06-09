@@ -34,7 +34,10 @@ import {
   getAuctionHouseTreasuryAccount,
   getMetadata,
 } from "./account";
-import { ASSOCIATED_TOKEN_PROGRAM_ID, mintTo } from "@solana/spl-token";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddress,
+} from "@solana/spl-token";
 import { BN } from "bn.js";
 import { getPriceWithMantissa } from "./misc";
 
@@ -121,7 +124,6 @@ export const createAuctionHouse = async (
   const twdAta = tMintKey.equals(WRAPPED_SOL_MINT)
     ? twdKey
     : (await getAtaForMint(tMintKey, twdKey))[0];
-
   console.log("twdAta => ", twdAta);
 
   const [auctionHouse, auctionHouseBump] = await getAuctionHouse(
@@ -417,12 +419,8 @@ export const sell = async (args: SellAuctionHouseArgs) => {
       tokenSizeAdjusted.toNumber()
     );
 
-    const tokenAccountKey: anchor.web3.PublicKey = (
-      await getAtaForMint(mintKey, walletKeyPair.publicKey)
-    )[0];
-    // const tokenAccountKey: anchor.web3.PublicKey = new anchor.web3.PublicKey(
-    //   "2VPSyqgWnxtR57gkii8xKkCXqe2pM1S22oep1JNTGo6w"
-    // );
+    const tokenAccountKey: anchor.web3.PublicKey =
+      await getAssociatedTokenAddress(mintKey, keypair.publicKey);
 
     console.log("[sell] || tokenAccountKey => ", tokenAccountKey.toBase58());
 
@@ -478,7 +476,7 @@ export const sell = async (args: SellAuctionHouseArgs) => {
       metadataFromMintKey.toBase58()
     );
 
-    const instruction = await anchorProgram.methods
+    const instruction: any = await anchorProgram.methods
       .sell(
         tradeStateBump,
         freeTradeStateBump,
@@ -500,10 +498,28 @@ export const sell = async (args: SellAuctionHouseArgs) => {
         programAsSigner: programAsSigner,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
       })
-      .signers([])
       .rpc();
 
-    console.log("[sell] || instruction => ", instruction);
+    const signers: Keypair[] = [];
+
+    if (auctionHouseKeypairLoaded) {
+      signers.push(auctionHouseKeypairLoaded);
+    }
+
+    if (auctionHouseSigns) {
+      // NOTE: Essentially makes the auction house keypair be the signer if the `auctionHousSigns` is true
+      instruction.keys
+        .filter((k) => k.pubkey.equals(auctionHouseKeypairLoaded.publicKey))
+        .map((k) => (k.isSigner = true));
+    } else {
+      // NOTE: and make the wallet be the signer if the opposite happens
+      instruction.keys
+        .filter((k) => k.pubkey.equals(walletKeyPair.publicKey))
+        .map((k) => (k.isSigner = true));
+    }
+
+    // update the instruction accordingly
+    await console.log("[sell] || instruction => ", instruction);
   } catch (error) {
     console.log("error in [sell] =>", error.message);
     console.error("error in [sell] =>", error);

@@ -31,6 +31,9 @@ export const MINT_ADDRESS_AMONGUS = new PublicKey(
   "Bf5YrNoLeFys5UNKZuaBB5EoyMHkYgouhL29K3CW4ihb"
 );
 
+export const MINT_ADDRESS_FLOWER_FIELD = new PublicKey(
+  "CLxj7os9PhWGXW1deunKYNF95bjGSui5XYP8huYMQegL"
+);
 export const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
   "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
 );

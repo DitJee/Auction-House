@@ -1,5 +1,7 @@
 use crate::constant;
 use crate::errors;
+use crate::errors::AuctionHouseError;
+use crate::state::AuctionHouse;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 use solana_program::program_pack::IsInitialized;
@@ -96,7 +98,7 @@ pub fn create_program_token_account_if_not_present<'a>(
     system_program: &Program<'a, System>,
     fee_payer: &AccountInfo<'a>,
     token_program: &Program<'a, Token>,
-    treasury_mint: &Account<'a, Mint>,
+    treasury_mint: &anchor_lang::prelude::Account<'a, Mint>,
     owner: &AccountInfo<'a>,
     rent: &Sysvar<'a, Rent>,
     signer_seeds: &[&[u8]],
@@ -194,8 +196,69 @@ pub fn create_or_allocate_account_raw<'a>(
         &system_instruction::assign(new_account_info.key, &program_id),
         accounts,
         &[new_acct_seeds],
-    );
+    )?;
 
     msg!("Completed assignation!");
     Ok(())
+}
+
+pub fn get_fee_player<'a, 'b>(
+    authority: &UncheckedAccount,
+    auction_house: &anchor_lang::prelude::Account<AuctionHouse>,
+    wallet: AccountInfo<'a>,
+    auction_house_fee_account: AccountInfo<'a>,
+    auction_house_seeds: &'b [&'b [u8]],
+) -> Result<(AccountInfo<'a>, &'b [&'b [u8]])> {
+    let mut seeds: &[&[u8]] = &[];
+    let fee_payer: AccountInfo;
+
+    if authority.to_account_info().is_signer {
+        seeds = auction_house_seeds;
+        fee_payer = auction_house_fee_account;
+    } else if wallet.is_signer {
+        if auction_house.requires_sign_off {
+            return Err(AuctionHouseError::CannotTakeThisActionWithoutAuctionHouseSignOff.into());
+        }
+
+        fee_payer = wallet;
+    } else {
+        return Err(AuctionHouseError::NoPayerPresent.into());
+    }
+
+    Ok((fee_payer, seeds))
+}
+
+pub fn assert_metadata_valid<'a>(
+    metadata: &UncheckedAccount,
+    token_account: &anchor_lang::prelude::Account<'a, TokenAccount>,
+) -> Result<()> {
+    assert_derivation(
+        &mpl_token_metadata::id(),
+        &metadata.to_account_info(),
+        &[
+            mpl_token_metadata::state::PREFIX.as_bytes(),
+            mpl_token_metadata::id().as_ref(),
+            token_account.mint.as_ref(),
+        ],
+    )?;
+
+    if metadata.data_is_empty() {
+        return Err(AuctionHouseError::MetadataDoesntExist.into());
+    }
+
+    Ok(())
+}
+
+pub fn assert_derivation(
+    program_id: &Pubkey,
+    account: &AccountInfo,
+    seeds: &[&[u8]],
+) -> Result<u8> {
+    let (key, bump) = Pubkey::find_program_address(seeds, program_id);
+
+    if key != *account.key {
+        return Err(AuctionHouseError::DerivedKeyInvalid.into());
+    }
+
+    Ok((bump))
 }

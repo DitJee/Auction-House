@@ -1,12 +1,13 @@
 #![allow(warnings)]
 pub mod constant;
 pub mod errors;
+pub mod sell;
 pub mod state;
 mod utils;
 
 use crate::constant::*;
 use crate::error::*;
-use crate::instruction::*;
+use crate::sell::*;
 use crate::state::*;
 use crate::utils::*;
 
@@ -20,15 +21,13 @@ use anchor_spl::{
     associated_token::AssociatedToken,
     token::{Mint, Token, TokenAccount},
 };
-// use program::AuctionHouse;
 
 declare_id!("Er4qqGJpN9CkQWeUp1P87aWYzkCqd4NbbKi8vtoNfPUJ"); // NOTE: ProgramID for Dev
 
 #[program]
 pub mod auction_house {
-    use crate::errors::AuctionHouseError;
-
     use super::*;
+    use crate::errors::AuctionHouseError;
 
     pub fn create_auction_house<'info>(
         ctx: Context<'_, '_, '_, 'info, CreateAuctionHouse<'info>>,
@@ -129,6 +128,17 @@ pub mod auction_house {
             )?;
         }
 
+        Ok(())
+    }
+
+    pub fn sell<'info>(
+        ctx: Context<'_, '_, '_, 'info, Sell<'info>>,
+        trade_state_bump: u8,
+        free_trade_state_bump: u8,
+        program_as_signer_bump: u8,
+        buyer_price: u64,
+        token_size: u64,
+    ) -> Result<()> {
         Ok(())
     }
 }

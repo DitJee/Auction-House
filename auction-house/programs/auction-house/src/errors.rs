@@ -16,4 +16,28 @@ pub enum AuctionHouseError {
 
     #[msg("Cannot initialized the account")]
     UninitializedAccount,
+
+    #[msg("Must use auctioneer handler.")]
+    MustUseAuctioneerHandler,
+
+    #[msg("This sale requires a signer")]
+    SaleRequiresSigner,
+
+    #[msg("Cannot take this action without auction house signing too")]
+    CannotTakeThisActionWithoutAuctionHouseSignOff,
+
+    #[msg("No payer present on this txn")]
+    NoPayerPresent,
+
+    #[msg("Derived key invalid")]
+    DerivedKeyInvalid,
+
+    #[msg("Metadata doesn't exist")]
+    MetadataDoesntExist,
+
+    #[msg("Invalid token amount")]
+    InvalidTokenAmount,
+
+    #[msg("Test error")]
+    TestError,
 }

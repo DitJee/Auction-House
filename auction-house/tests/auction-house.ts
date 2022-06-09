@@ -1,9 +1,9 @@
 import * as anchor from "@project-serum/anchor";
-import { Program } from "@project-serum/anchor";
 import { expect } from "chai";
 
 import { AuctionHouse } from "../target/types/auction_house";
-import { createAuctionHouse, loadAuctionHouseProgram } from "./utils";
+import { createAuctionHouse, showAuctionHouse } from "./utils";
+import { addSOLToWallet } from "./utils/account";
 import { loadWalletKey } from "./utils/constants";
 
 describe("auction-house", () => {
@@ -12,18 +12,30 @@ describe("auction-house", () => {
 
   it("Should successfully create auction house", async () => {
     // init
+
     const _keypair = anchor.web3.Keypair.generate();
+
+    await addSOLToWallet(_keypair);
     const walletKeyPair = loadWalletKey(_keypair.secretKey);
 
     try {
-      await createAuctionHouse({
+      const auctionHouse: anchor.web3.PublicKey = await createAuctionHouse({
         keypair: walletKeyPair,
         env: "devnet",
-        sellerFeeBasisPoints: 1000,
+        sellerFeeBasisPoints: 100,
         canChangeSalePrice: false,
         requiresSignOff: false,
         treasuryWithdrawalDestination: null,
         feeWithdrawalDestination: null,
+        treasuryMint: null,
+      });
+
+      console.log("auctionHouse.toBase58 => ", auctionHouse.toBase58());
+
+      await showAuctionHouse({
+        keypair: _keypair,
+        env: "devnet",
+        auctionHouse: auctionHouse.toBase58(),
         treasuryMint: null,
       });
     } catch (error) {

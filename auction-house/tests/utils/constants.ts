@@ -1,3 +1,4 @@
+import { AnchorProvider, web3 } from "@project-serum/anchor";
 import { PublicKey, clusterApiUrl, Keypair } from "@solana/web3.js";
 
 export const AUCTION_HOUSE = "auction_house";
@@ -36,12 +37,12 @@ export const CLUSTERS: Cluster[] = [
   },
 ];
 
-export const loadWalletKey = (keypair): Keypair => {
-  if (!keypair || keypair == "") {
+export const loadWalletKey = (keypair: Uint8Array): Keypair => {
+  if (!keypair || keypair.toString() == "") {
     throw new Error("Keypair is required!");
   }
-  const loaded = Keypair.fromSecretKey(new Uint8Array(keypair));
-  console.log(`wallet public key: ${loaded.publicKey}`);
+  const loaded = Keypair.fromSecretKey(keypair);
+  // console.log(`wallet public key: ${loaded.publicKey}`);
   return loaded;
 };
 

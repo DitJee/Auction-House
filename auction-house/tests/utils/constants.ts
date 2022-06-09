@@ -4,6 +4,8 @@ import { PublicKey, clusterApiUrl, Keypair } from "@solana/web3.js";
 export const AUCTION_HOUSE = "auction_house";
 export const FEE_PAYER = "fee_payer";
 export const TREASURY = "treasury";
+export const SIGNER = "signer";
+export const METADATA = "metadata";
 
 export const AUCTION_HOUSE_PROGRAM_ID = new PublicKey(
   "Er4qqGJpN9CkQWeUp1P87aWYzkCqd4NbbKi8vtoNfPUJ"
@@ -23,6 +25,14 @@ export const TOKEN_PROGRAM_ID = new PublicKey(
 
 export const SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID = new PublicKey(
   "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+);
+
+export const MINT_ADDRESS_AMONGUS = new PublicKey(
+  "Bf5YrNoLeFys5UNKZuaBB5EoyMHkYgouhL29K3CW4ihb"
+);
+
+export const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
+  "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
 );
 
 export type Cluster = {

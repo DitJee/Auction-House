@@ -3,7 +3,10 @@ import {
   AUCTION_HOUSE,
   AUCTION_HOUSE_PROGRAM_ID,
   FEE_PAYER,
+  METADATA,
+  SIGNER,
   SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
+  TOKEN_METADATA_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
   TREASURY,
 } from "./constants";
@@ -15,6 +18,7 @@ import {
   clusterApiUrl,
   Connection,
 } from "@solana/web3.js";
+import { AuctionHouseTradeStateSeeds } from "./interfaces";
 
 export const getAtaForMint = async (
   mint: anchor.web3.PublicKey,
@@ -95,4 +99,60 @@ export const addSOLToWallet = async (wallet: Keypair) => {
   } catch (error) {
     console.error(error);
   }
+};
+
+export const getAuctionHouseProgramAsSigner = async (): Promise<
+  [PublicKey, number]
+> => {
+  try {
+    const auctionHouseProgramAsSignerAddress: [anchor.web3.PublicKey, number] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [Buffer.from(AUCTION_HOUSE), Buffer.from(SIGNER)],
+        AUCTION_HOUSE_PROGRAM_ID
+      );
+
+    return auctionHouseProgramAsSignerAddress;
+  } catch (error) {
+    throw new Error("cannot find getAuctionHouseProgramAsSigner address");
+  }
+};
+
+export const getAuctionHouseTradeState = async (
+  seeds: AuctionHouseTradeStateSeeds
+): Promise<[PublicKey, number]> => {
+  try {
+    const auctionHouseTradeStateAddress: [anchor.web3.PublicKey, number] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from(AUCTION_HOUSE),
+          seeds.wallet.toBuffer(),
+          seeds.auctionHouse.toBuffer(),
+          seeds.tokenAccount.toBuffer(),
+          seeds.treasuryMint.toBuffer(),
+          seeds.tokenMint.toBuffer(),
+          seeds.buyPrice.toBuffer("le", 8),
+          seeds.tokenSize.toBuffer("le", 8),
+        ],
+        AUCTION_HOUSE_PROGRAM_ID
+      );
+
+    return auctionHouseTradeStateAddress;
+  } catch (error) {
+    throw new Error("cannot find getAuctionHouseTradeState address");
+  }
+};
+
+export const getMetadata = async (
+  mint: anchor.web3.PublicKey
+): Promise<[anchor.web3.PublicKey, number]> => {
+  const metadataAddress = await anchor.web3.PublicKey.findProgramAddress(
+    [
+      Buffer.from(METADATA),
+      TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+      mint.toBuffer(),
+    ],
+    TOKEN_METADATA_PROGRAM_ID
+  );
+
+  return metadataAddress;
 };

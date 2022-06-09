@@ -30,3 +30,24 @@ export type AuctionHouseObject = {
   hasAuctioneer: boolean;
   auctioneerPdaBump: number;
 };
+
+export type SellAuctionHouseArgs = {
+  keypair: Keypair;
+  env: string;
+  auctionHouse: anchor.web3.PublicKey;
+  auctionHouseKeypair: anchor.web3.Keypair;
+  buyPrice: number;
+  mint: anchor.web3.PublicKey;
+  tokenSize: number;
+  auctionHouseSigns: boolean;
+};
+
+export type AuctionHouseTradeStateSeeds = {
+  auctionHouse: anchor.web3.PublicKey;
+  wallet: anchor.web3.PublicKey;
+  tokenAccount: anchor.web3.PublicKey;
+  treasuryMint: anchor.web3.PublicKey;
+  tokenMint: anchor.web3.PublicKey;
+  tokenSize: anchor.BN;
+  buyPrice: anchor.BN;
+};

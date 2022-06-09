@@ -139,7 +139,14 @@ pub mod auction_house {
         buyer_price: u64,
         token_size: u64,
     ) -> Result<()> {
-        Ok(())
+        sell::sell(
+            ctx,
+            trade_state_bump,
+            free_trade_state_bump,
+            program_as_signer_bump,
+            buyer_price,
+            token_size,
+        )
     }
 }
 

@@ -17,9 +17,15 @@ import {
   AccountInfo,
   clusterApiUrl,
   Connection,
+  SignatureStatus,
 } from "@solana/web3.js";
-import { AuctionHouseTradeStateSeeds } from "./interfaces";
+import {
+  AuctionHouseTradeStateSeeds,
+  RetryWithKeypairArgs,
+  SignedTransactionArgs,
+} from "./interfaces";
 import { createAssociatedTokenAccountInstruction } from "@solana/spl-token";
+import { getUnixTs, sleep } from "./misc";
 
 export const getAtaForMint = async (
   mint: anchor.web3.PublicKey,
@@ -158,4 +164,245 @@ export const getMetadata = async (
   return metadataAddress;
 };
 
-export const sendTransactionWithRetryWithKeypair = async () => {};
+export const sendTransactionWithRetryWithKeypair = async (
+  retryArgs: RetryWithKeypairArgs
+) => {
+  // NOTE: create a new instance of transaction
+  const transaction = new anchor.web3.Transaction();
+
+  // NOTE: add the input instruction to the new transaction
+  retryArgs.instructions.forEach((instruction) => transaction.add(instruction));
+  transaction.recentBlockhash = (
+    retryArgs.block ||
+    (await retryArgs.connection.getLatestBlockhash(retryArgs.commitment))
+  ).blockhash;
+
+  transaction.feePayer = retryArgs.wallet.publicKey;
+
+  if (retryArgs.includeFeePayer) {
+    transaction.partialSign(...retryArgs.signers.map((signer) => signer));
+  } else {
+    transaction.partialSign(
+      retryArgs.wallet,
+      ...retryArgs.signers.map((signer) => signer)
+    );
+  }
+
+  if (retryArgs.signers.length > 0) {
+    transaction.sign(...[retryArgs.wallet, ...retryArgs.signers]);
+  } else {
+    transaction.sign(retryArgs.wallet);
+  }
+
+  if (retryArgs.beforeSend) {
+    retryArgs.beforeSend();
+  }
+
+  const { txid, slot } = await sendSignedTransaction({
+    connection: retryArgs.connection,
+    signedTransaction: transaction,
+  });
+
+  return { txid, slot };
+};
+
+export const sendSignedTransaction = async (
+  args: SignedTransactionArgs
+): Promise<{ txid: string; slot: number }> => {
+  const rawTransaction = args.signedTransaction.serialize();
+  const startTime = getUnixTs();
+  let slot = 0;
+
+  // NOTE: send raw transaction
+  const txid: anchor.web3.TransactionSignature =
+    await args.connection.sendRawTransaction(rawTransaction, {
+      skipPreflight: true,
+    });
+
+  console.debug(
+    "[accounts] [sendSignedTransaction] Started awaiting confirmation for",
+    txid
+  );
+
+  let done = false;
+  (async () => {
+    while (!done && getUnixTs() - startTime < args.timeout) {
+      args.connection.sendRawTransaction(rawTransaction, {
+        skipPreflight: true,
+      });
+
+      await sleep(500);
+    }
+  })();
+
+  try {
+    // NOTE: wait for confirmation before procede
+    const confirmation = await awaitTransactionSignatureConfirmation(
+      txid,
+      args.timeout,
+      args.connection,
+      "confirmed",
+      true
+    );
+
+    if (!confirmation) {
+      throw new Error("Timed out awaiting confirmation on transaction");
+    }
+
+    if (confirmation.err) {
+      console.error(confirmation.err);
+      throw new Error("Transaction failed: Custom instruction error");
+    }
+
+    slot = confirmation?.slot || 0;
+  } catch (error) {
+    error["timeout"] = "";
+    console.error("Timeout Error caught", error);
+    if (error) {
+      throw new Error("Timed out awaiting confirmation on transaction");
+    }
+  } finally {
+    done = true;
+  }
+
+  console.debug("Latency (ms)", txid, getUnixTs() - startTime);
+  return { txid, slot };
+};
+
+export const awaitTransactionSignatureConfirmation = async (
+  txid: anchor.web3.TransactionSignature,
+  timeout: number,
+  connection: anchor.web3.Connection,
+  commitment: anchor.web3.Commitment,
+  queryStatus: boolean
+): Promise<SignatureStatus | null | void> => {
+  // NOTE: init status variables
+  let done = false;
+  let status: SignatureStatus = {
+    confirmations: 0,
+    err: null,
+    slot: 0,
+  };
+  let subId = 0;
+
+  try {
+    await waitForConfirmation(
+      done,
+      timeout,
+      txid,
+      subId,
+      connection,
+      status,
+      commitment,
+      queryStatus
+    );
+  } catch (error) {
+    console.error(" error => ", error);
+  } finally {
+    done = true;
+    console.debug("Returning status", status);
+    return status;
+  }
+};
+
+export const waitForConfirmation = async (
+  done: boolean,
+  timeout: number,
+  txid: anchor.web3.TransactionSignature,
+  subId: number,
+  connection: anchor.web3.Connection,
+  status: SignatureStatus,
+  commitment: anchor.web3.Commitment,
+  queryStatus: boolean
+) => {
+  return new Promise(async (resolve, reject) => {
+    await setTimeOutWithCondition(timeout, done, reject);
+
+    try {
+      subId = connection.onSignature(
+        txid,
+        (result, context) => {
+          done = true;
+          status.confirmations = 0;
+          status.err = result.err;
+          status.slot = context.slot;
+
+          if (result.err) {
+            console.warn("Rejected via websocket", result.err);
+            reject(status);
+          } else {
+            console.debug("Resolved via websocket", result);
+
+            console.log("Resolved status => ", status);
+            resolve(status);
+          }
+        },
+        commitment
+      );
+    } catch (error) {
+      done = true;
+      console.error("WS error in setup", txid, error);
+    }
+
+    while (!done && queryStatus) {
+      await confirmSignatureStatuses(
+        connection,
+        txid,
+        status,
+        done,
+        resolve,
+        reject
+      );
+      await sleep(2000);
+    }
+  });
+};
+
+const setTimeOutWithCondition = (
+  time: number,
+  condition: boolean,
+  reject: (reason?: any) => void
+): void => {
+  setTimeout(() => {
+    if (condition) return;
+    condition = true;
+    console.warn(" REJECTING FOR TIMEOUT...");
+    reject({
+      timeout: true,
+    });
+  }, time);
+};
+
+const confirmSignatureStatuses = async (
+  connection: anchor.web3.Connection,
+  txid: anchor.web3.TransactionSignature,
+  status: SignatureStatus,
+  done: boolean,
+  resolve: (value: unknown) => void,
+  reject: (reason?: any) => void
+) => {
+  try {
+    const signatureStatuses = await connection.getSignatureStatuses([txid]);
+    status = signatureStatuses && signatureStatuses.value[0];
+
+    if (!done) {
+      if (!status) {
+        console.debug("REST null result for", txid, status);
+      } else if (status.err) {
+        console.error("REST error for", txid, status);
+        done = true;
+        reject(status.err);
+      } else if (!status.confirmations) {
+        console.debug("REST no confirmations for", txid, status);
+      } else {
+        console.debug("REST confirmation for", txid, status);
+        done = true;
+        resolve(status);
+      }
+    }
+  } catch (error) {
+    if (!done) {
+      console.error("REST connection error: txid", txid, error);
+    }
+  }
+};

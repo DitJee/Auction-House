@@ -1,10 +1,12 @@
 #![allow(warnings)]
+pub mod bid;
 pub mod constant;
 pub mod errors;
 pub mod sell;
 pub mod state;
 mod utils;
 
+use crate::bid::*;
 use crate::constant::*;
 use crate::error::*;
 use crate::sell::*;
@@ -147,6 +149,16 @@ pub mod auction_house {
             buyer_price,
             token_size,
         )
+    }
+
+    pub fn buy<'info>(
+        ctx: Context<'_, '_, '_, 'info, Buy<'info>>,
+        trade_state_bump: u8,
+        escrow_payment_bump: u8,
+        buyer_price: u64,
+        token_size: u64,
+    ) -> Result<()> {
+        Ok(())
     }
 }
 

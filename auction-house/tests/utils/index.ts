@@ -33,6 +33,7 @@ import {
   getAuctionHouseTradeState,
   getAuctionHouseTreasuryAccount,
   getMetadata,
+  sendTransactionWithRetryWithKeypair,
 } from "./account";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -40,6 +41,7 @@ import {
 } from "@solana/spl-token";
 import { BN } from "bn.js";
 import { getPriceWithMantissa } from "./misc";
+import { base58_to_binary } from "base58-js";
 
 const loadAuctionHouseProgram = async (
   walletKeyPair: Keypair,
@@ -476,29 +478,33 @@ export const sell = async (args: SellAuctionHouseArgs) => {
       metadataFromMintKey.toBase58()
     );
 
-    const instruction: any = await anchorProgram.methods
-      .sell(
-        tradeStateBump,
-        freeTradeStateBump,
-        programAsSignerBump,
-        buyPriceAdjusted,
-        tokenSizeAdjusted
-      )
-      .accounts({
-        wallet: walletKeyPair.publicKey,
-        tokenAccount: tokenAccountKey,
-        metadata: metadataFromMintKey,
-        authority: auctionHouseObj.authority,
-        auctionHouse: auctionHouseKey,
-        auctionHouseFeeAccount: auctionHouseObj.auctionHouseFeeAccount,
-        sellerTradeState: tradeState,
-        freeSellerTradeState: freeTradeState,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        systemProgram: anchor.web3.SystemProgram.programId,
-        programAsSigner: programAsSigner,
-        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-      })
-      .rpc();
+    const instruction: anchor.web3.TransactionInstruction =
+      await anchorProgram.methods
+        .sell(
+          tradeStateBump,
+          freeTradeStateBump,
+          programAsSignerBump,
+          buyPriceAdjusted,
+          tokenSizeAdjusted
+        )
+        .accounts({
+          wallet: walletKeyPair.publicKey,
+          tokenAccount: tokenAccountKey,
+          metadata: metadataFromMintKey,
+          authority: auctionHouseObj.authority,
+          auctionHouse: auctionHouseKey,
+          auctionHouseFeeAccount: auctionHouseObj.auctionHouseFeeAccount,
+          sellerTradeState: tradeState,
+          freeSellerTradeState: freeTradeState,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: anchor.web3.SystemProgram.programId,
+          programAsSigner: programAsSigner,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        })
+        .instruction();
+
+    // update the instruction accordingly
+    console.log("[sell] || instruction => ", instruction);
 
     const signers: Keypair[] = [];
 
@@ -518,8 +524,32 @@ export const sell = async (args: SellAuctionHouseArgs) => {
         .map((k) => (k.isSigner = true));
     }
 
-    // update the instruction accordingly
-    await console.log("[sell] || instruction => ", instruction);
+    console.log("[sell] || adjusted instruction => ", instruction);
+
+    await sendTransactionWithRetryWithKeypair({
+      connection: anchorProgram.provider.connection,
+      wallet: auctionHouseSigns ? auctionHouseKeypairLoaded : walletKeyPair,
+      instructions: [instruction],
+      signers: signers,
+      commitment: "max",
+      includeFeePayer: false,
+    });
+
+    console.log(
+      "Set",
+      tokenSize,
+      mint.toBase58(),
+      "for sale for",
+      buyPrice,
+      "from your account with Auction House",
+      auctionHouse.toBase58()
+    );
+    var output = {
+      mintAddress: mint,
+      price: buyPrice,
+      account: auctionHouse,
+    };
+    return output;
   } catch (error) {
     console.log("error in [sell] =>", error.message);
     console.error("error in [sell] =>", error);

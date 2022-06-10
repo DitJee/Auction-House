@@ -1,4 +1,10 @@
-import { PublicKeyInitData, Keypair } from "@solana/web3.js";
+import {
+  PublicKeyInitData,
+  Keypair,
+  TransactionInstruction,
+  Blockhash,
+  FeeCalculator,
+} from "@solana/web3.js";
 import * as anchor from "@project-serum/anchor";
 
 export type CreateAuctionHouseArgs = {
@@ -50,4 +56,28 @@ export type AuctionHouseTradeStateSeeds = {
   tokenMint: anchor.web3.PublicKey;
   tokenSize: anchor.BN;
   buyPrice: anchor.BN;
+};
+
+interface BlockhashAndFeeCalculator {
+  blockhash: Blockhash;
+  feeCalculator: FeeCalculator;
+}
+export interface RetryWithKeypairArgs {
+  connection: anchor.web3.Connection;
+  wallet: anchor.web3.Keypair;
+  instructions: TransactionInstruction[];
+  signers: anchor.web3.Keypair[];
+  commitment: anchor.web3.Commitment;
+  includeFeePayer: boolean;
+  block?: BlockhashAndFeeCalculator;
+  beforeSend?: () => void;
+}
+
+export type SignedTransactionArgs = {
+  signedTransaction: anchor.web3.Transaction;
+  connection: anchor.web3.Connection;
+  sendingMessage?: string;
+  sentMessgae?: string;
+  successMessage?: string;
+  timeout?: number;
 };

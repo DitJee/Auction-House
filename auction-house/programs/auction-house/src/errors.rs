@@ -40,4 +40,7 @@ pub enum AuctionHouseError {
 
     #[msg("Test error")]
     TestError,
+
+    #[msg("NumericalOverflow")]
+    NumericalOverflow,
 }

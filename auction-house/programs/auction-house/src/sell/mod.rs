@@ -6,7 +6,7 @@ use crate::constant::*;
 use crate::errors::AuctionHouseError;
 use crate::state::AuctionHouse;
 use crate::utils::{
-    assert_is_ata, assert_metadata_valid, create_or_allocate_account_raw, get_fee_player,
+    assert_is_ata, assert_metadata_valid, create_or_allocate_account_raw, get_fee_payer,
 };
 
 /// Accounts for the [`sell` handler](auction_house/fn.sell.html).
@@ -170,7 +170,7 @@ pub fn sell_logic<'info>(
         &[auction_house.fee_payer_bump],
     ];
 
-    let (fee_payer, fee_seeds) = get_fee_player(
+    let (fee_payer, fee_seeds) = get_fee_payer(
         authority,
         auction_house,
         wallet.to_account_info(),

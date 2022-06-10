@@ -158,7 +158,13 @@ pub mod auction_house {
         buyer_price: u64,
         token_size: u64,
     ) -> Result<()> {
-        Ok(())
+        private_bid(
+            ctx,
+            trade_state_bump,
+            escrow_payment_bump,
+            buyer_price,
+            token_size,
+        )
     }
 }
 

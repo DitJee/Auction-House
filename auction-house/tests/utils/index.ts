@@ -23,6 +23,7 @@ import {
   AuctionHouseObject,
   BuyAuctionHouseArgs,
   CreateAuctionHouseArgs,
+  ExecuteSaleAuctionHouseArgs,
   SellAuctionHouseArgs,
 } from "./interfaces";
 import { Program } from "@project-serum/anchor";
@@ -747,4 +748,170 @@ export const buy = async (args: BuyAuctionHouseArgs) => {
 
   console.log("[buy] || Made offer for ", buyPrice);
   return buyPrice;
+};
+
+export const executeSale = async (args: ExecuteSaleAuctionHouseArgs) => {
+  const {
+    keypair,
+    env,
+    auctionHouse,
+    auctionHouseKeypair,
+    buyPrice,
+    mint,
+    tokenSize,
+    auctionHouseSigns,
+    buyerWallet,
+    sellerWallet,
+  } = args;
+
+  const auctionHouseKey = new anchor.web3.PublicKey(auctionHouse);
+  const walletKeyPair = loadWalletKey(keypair.secretKey);
+  const mintKey = new anchor.web3.PublicKey(mint);
+
+  const auctionHouseKeypairLoaded = auctionHouseKeypair
+    ? loadWalletKey(auctionHouseKeypair.secretKey)
+    : (null as any);
+
+  if (auctionHouseKeypair) {
+    console.log(
+      "[executeSale] || auctionHouseKeypairLoaded ",
+      auctionHouseKeypairLoaded.publicKey.toBase58()
+    );
+  }
+
+  console.log(
+    "[executeSale] || auctionHouseKey => ",
+    auctionHouseKey.toBase58()
+  );
+  console.log(
+    "[executeSale] || walletKeyPair => ",
+    walletKeyPair.publicKey.toBase58()
+  );
+  console.log("[executeSale] || mintKey => ", mintKey.toBase58());
+
+  const anchorProgram = await loadAuctionHouseProgram(
+    auctionHouseSigns ? auctionHouseKeypairLoaded : walletKeyPair,
+    env
+  );
+
+  const auctionHouseObj = (await anchorProgram.account.auctionHouse.fetch(
+    auctionHouseKey
+  )) as AuctionHouseObject;
+  const buyerWalletKey = new anchor.web3.PublicKey(buyerWallet);
+  const sellerWalletKey = new anchor.web3.PublicKey(sellerWallet);
+
+  console.log(
+    "[executeSale] || anchorProgram => ",
+    anchorProgram.programId.toBase58()
+  );
+  console.log(
+    "[executeSale] || auctionHouseObj => ",
+    auctionHouseObj.authority.toBase58()
+  );
+  console.log("[executeSale] || buyerWalletKey => ", buyerWalletKey.toBase58());
+  console.log(
+    "[executeSale] || sellerWalletKey => ",
+    sellerWalletKey.toBase58()
+  );
+
+  const isNative = auctionHouseObj.treasuryMint.equals(WRAPPED_SOL_MINT);
+  const buyPriceAdjusted = new BN(
+    await getPriceWithMantissa(
+      buyPrice,
+      auctionHouseObj.treasuryMint,
+      walletKeyPair,
+      anchorProgram
+    )
+  );
+
+  const tokenSizeAdjusted = new BN(
+    await getPriceWithMantissa(tokenSize, mintKey, walletKeyPair, anchorProgram)
+  );
+
+  const tokenAccountKey = await getAssociatedTokenAddress(
+    mintKey,
+    sellerWalletKey
+  );
+
+  console.log("[executeSale] || isNative => ", isNative);
+  console.log(
+    "[executeSale] || buyPriceAdjusted => ",
+    buyPriceAdjusted.toNumber()
+  );
+  console.log(
+    "[executeSale] || tokenSizeAdjusted => ",
+    tokenSizeAdjusted.toNumber()
+  );
+  console.log(
+    "[executeSale] || sellerWalletKey => ",
+    tokenAccountKey.toBase58()
+  );
+
+  const buyerTradeState = (
+    await getAuctionHouseTradeState({
+      auctionHouse: auctionHouseKey,
+      buyPrice: buyPriceAdjusted,
+      tokenAccount: tokenAccountKey,
+      tokenMint: mintKey,
+      tokenSize: tokenSizeAdjusted,
+      treasuryMint: auctionHouseObj.treasuryMint,
+      wallet: buyerWalletKey,
+    })
+  )[0];
+
+  const sellerTradeState = (
+    await getAuctionHouseTradeState({
+      auctionHouse: auctionHouseKey,
+      buyPrice: buyPriceAdjusted,
+      tokenAccount: tokenAccountKey,
+      tokenMint: mintKey,
+      tokenSize: tokenSizeAdjusted,
+      treasuryMint: auctionHouseObj.treasuryMint,
+      wallet: sellerWalletKey,
+    })
+  )[0];
+
+  const [freeTradeState, freeTradeStateBump] = await getAuctionHouseTradeState({
+    auctionHouse: auctionHouseKey,
+    buyPrice: new BN(0),
+    tokenAccount: tokenAccountKey,
+    tokenMint: mintKey,
+    tokenSize: tokenSizeAdjusted,
+    treasuryMint: auctionHouseObj.treasuryMint,
+    wallet: sellerWalletKey,
+  });
+
+  const [escrowPaymentAccount, escrowPaymentAccountBump] =
+    await getAuctionHouseBuyerEscrow(auctionHouseKey, walletKeyPair.publicKey);
+
+  const [programAsSigner, programAsSignerBump] =
+    await getAuctionHouseProgramAsSigner();
+
+  console.log(
+    "[executeSale] || buyerTradeState => ",
+    buyerTradeState.toBase58()
+  );
+  console.log(
+    "[executeSale] || sellerTradeState => ",
+    sellerTradeState.toBase58()
+  );
+  console.log("[executeSale] || [freeTradeState, freeTradeStateBump] => ", [
+    freeTradeState.toBase58(),
+    freeTradeStateBump,
+  ]);
+  console.log(
+    "[executeSale] || [escrowPaymentAccount, escrowPaymentAccountBump] => ",
+    [escrowPaymentAccount.toBase58(), escrowPaymentAccountBump]
+  );
+  console.log("[executeSale] || [programAsSigner, programAsSignerBump] => ", [
+    programAsSigner.toBase58(),
+    programAsSignerBump,
+  ]);
+
+  const metadata = await getMetadata(mintKey);
+  const metadataObj = await anchorProgram.provider.connection.getAccountInfo(
+    metadata[0]
+  );
+
+  // const metadataDecoded = decodeMeta
 };

@@ -92,3 +92,16 @@ export type BuyAuctionHouseArgs = {
   tokenSize: number;
   tokenAccount: anchor.web3.PublicKey;
 };
+
+export type ExecuteSaleAuctionHouseArgs = {
+  keypair: Keypair;
+  env: string;
+  auctionHouse: anchor.web3.PublicKey;
+  auctionHouseKeypair: anchor.web3.Keypair;
+  buyPrice: number;
+  mint: anchor.web3.PublicKey;
+  tokenSize: number;
+  auctionHouseSigns: boolean;
+  buyerWallet: anchor.web3.PublicKey;
+  sellerWallet: anchor.web3.PublicKey;
+};

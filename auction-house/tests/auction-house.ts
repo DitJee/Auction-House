@@ -3,14 +3,24 @@ import { publicKey } from "@project-serum/anchor/dist/cjs/utils";
 import { expect } from "chai";
 
 import { AuctionHouse } from "../target/types/auction_house";
-import { buy, createAuctionHouse, sell, showAuctionHouse } from "./utils";
+import {
+  buy,
+  createAuctionHouse,
+  executeSale,
+  sell,
+  showAuctionHouse,
+} from "./utils";
 import { addSOLToWallet } from "./utils/account";
 import {
   loadWalletKey,
   MINT_ADDRESS_AMONGUS,
   MINT_ADDRESS_FLOWER_FIELD,
 } from "./utils/constants";
-import { BuyAuctionHouseArgs, SellAuctionHouseArgs } from "./utils/interfaces";
+import {
+  BuyAuctionHouseArgs,
+  ExecuteSaleAuctionHouseArgs,
+  SellAuctionHouseArgs,
+} from "./utils/interfaces";
 
 import { base58_to_binary } from "base58-js";
 
@@ -129,6 +139,29 @@ describe("auction-house", () => {
     } catch (error) {
       console.log("error in buy test => ", error.message);
       console.error("error in buy test => ", error);
+    }
+  });
+
+  it("should execute execute_sale function", async () => {
+    try {
+      await addSOLToWallet(buyerKeypair);
+      const executeSaleArgs: ExecuteSaleAuctionHouseArgs = {
+        keypair: jeeKeypair,
+        env: env,
+        auctionHouse: auctionHouse,
+        auctionHouseKeypair: null,
+        buyPrice: 1,
+        mint: MINT_ADDRESS_FLOWER_FIELD,
+        tokenSize: 1,
+        auctionHouseSigns: false,
+        buyerWallet: buyerKeypair.publicKey,
+        sellerWallet: jeeKeypair.publicKey,
+      };
+
+      await executeSale(executeSaleArgs);
+    } catch (error) {
+      console.log("error in execute_sale test => ", error.message);
+      console.error("error in execute_sale test => ", error);
     }
   });
 });

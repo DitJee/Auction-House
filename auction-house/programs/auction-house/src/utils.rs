@@ -1,10 +1,15 @@
+use std::slice::Iter;
+
 use crate::constant;
 use crate::constant::PREFIX;
 use crate::errors;
 use crate::errors::AuctionHouseError;
 use crate::state::AuctionHouse;
+use anchor_lang::accounts::signer;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
+use arrayref::array_ref;
+use mpl_token_metadata::state::Metadata;
 use solana_program::program_pack::IsInitialized;
 use solana_program::{
     program::invoke_signed, program_memory::sol_memcmp, program_pack::Pack, pubkey::PUBKEY_BYTES,
@@ -317,4 +322,207 @@ pub fn assert_valid_trade_state(
         (Err(_), Ok(bump)) if bump == ts_bump => Ok(bump),
         _ => Err(AuctionHouseError::DerivedKeyInvalid.into()),
     }
+}
+
+/// Cheap method to just grab mint Pubkey from token account, instead of deserializing entire thing
+pub fn get_mint_from_token_account(token_account_info: &AccountInfo) -> Result<Pubkey> {
+    // get mint from token account from its structure [ mint(32), owner(32, ... )]
+    let data = token_account_info.try_borrow_data()?;
+    let mint_data = array_ref![data, 0, 32];
+    Ok(Pubkey::new_from_array(*mint_data))
+}
+
+/// Cheap method to just grab delegate Pubkey from token account, instead of deserializing entire thing
+pub fn get_delegate_from_token_account(token_account_info: &AccountInfo) -> Result<Option<Pubkey>> {
+    // get delegate from token account from its structure [ mint(32), owner(32, ... )]
+    let data = token_account_info.try_borrow_data()?;
+    let key_data = array_ref![data, 76, 32];
+    let coption_data = u32::from_le_bytes(*array_ref![data, 72, 4]);
+    if coption_data == 0 {
+        Ok(None)
+    } else {
+        Ok(Some(Pubkey::new_from_array(*key_data)))
+    }
+}
+
+pub fn rent_checked_sub(escrow_account: AccountInfo, diff: u64) -> Result<u64> {
+    let rent_minimum = (Rent::get()?).minimum_balance((escrow_account.data_len()));
+    let account_lamports = escrow_account
+        .lamports()
+        .checked_sub(diff)
+        .ok_or(AuctionHouseError::NumericalOverflow)?;
+    if account_lamports < rent_minimum {
+        Ok(escrow_account.lamports() - rent_minimum)
+    } else {
+        Ok(diff)
+    }
+}
+
+pub fn pay_creator_fees<'a>(
+    remaining_accounts: &mut Iter<AccountInfo<'a>>,
+    metadata_info: &AccountInfo<'a>,
+    escrow_payment_account: &AccountInfo<'a>,
+    payment_account_owner: &AccountInfo<'a>,
+    fee_payer: &AccountInfo<'a>,
+    treasury_mint: &AccountInfo<'a>,
+    ata_program: &AccountInfo<'a>,
+    token_program: &AccountInfo<'a>,
+    system_program: &AccountInfo<'a>,
+    rent: &AccountInfo<'a>,
+    signer_seeds: &[&[u8]],
+    fee_payer_seeds: &[&[u8]],
+    size: u64,
+    is_native: bool,
+) -> Result<u64> {
+    let metadata = Metadata::from_account_info(metadata_info)?;
+    let fees = metadata.data.seller_fee_basis_points;
+    let total_fee = (fees as u128)
+        .checked_mul(size as u128)
+        .ok_or(AuctionHouseError::NumericalOverflow)?
+        .checked_div(10000)
+        .ok_or(AuctionHouseError::NumericalOverflow)? as u64;
+
+    let mut remaining_fee = total_fee;
+    let remaining_size = size
+        .checked_sub(total_fee)
+        .ok_or(AuctionHouseError::NumericalOverflow)?;
+
+    match metadata.data.creators {
+        Some(creators) => {
+            for creator in creators {
+                let share_percentage = creator.share as u128;
+                let creator_fee = share_percentage
+                    .checked_mul(total_fee as u128)
+                    .ok_or(AuctionHouseError::NumericalOverflow)?
+                    .checked_div(100)
+                    .ok_or(AuctionHouseError::NumericalOverflow)?
+                    as u64;
+
+                remaining_fee = remaining_fee
+                    .checked_sub(creator_fee)
+                    .ok_or(AuctionHouseError::NumericalOverflow)?;
+
+                let current_creator_info = next_account_info(remaining_accounts)?;
+                assert_keys_equal(creator.address, *current_creator_info.key)?;
+
+                if !is_native {
+                    let current_creator_token_account_info = next_account_info(remaining_accounts)?;
+
+                    if current_creator_token_account_info.data_is_empty() {
+                        make_ata(
+                            current_creator_token_account_info.to_account_info(),
+                            current_creator_info.to_account_info(),
+                            treasury_mint.to_account_info(),
+                            fee_payer.to_account_info(),
+                            ata_program.to_account_info(),
+                            token_program.to_account_info(),
+                            system_program.to_account_info(),
+                            rent.to_account_info(),
+                            fee_payer_seeds,
+                        )?;
+                    }
+
+                    assert_is_ata(
+                        current_creator_token_account_info,
+                        current_creator_info.key,
+                        &treasury_mint.key(),
+                    )?;
+
+                    if creator_fee > 0 {
+                        invoke_signed(
+                            &spl_token::instruction::transfer(
+                                token_program.key,
+                                escrow_payment_account.key,
+                                current_creator_token_account_info.key,
+                                payment_account_owner.key,
+                                &[],
+                                creator_fee,
+                            )?,
+                            &[
+                                escrow_payment_account.clone(),
+                                current_creator_token_account_info.clone(),
+                                token_program.clone(),
+                                payment_account_owner.clone(),
+                            ],
+                            &[signer_seeds],
+                        )?;
+                    }
+                } else if creator_fee > 0 {
+                    invoke_signed(
+                        &system_instruction::transfer(
+                            escrow_payment_account.key,
+                            current_creator_info.key,
+                            creator_fee,
+                        ),
+                        &[
+                            escrow_payment_account.clone(),
+                            current_creator_info.clone(),
+                            system_program.clone(),
+                        ],
+                        &[signer_seeds],
+                    )?;
+                }
+            }
+        }
+        None => {
+            msg!("No creators found in metadata");
+        }
+    }
+    Ok(remaining_size
+        .checked_add(remaining_fee)
+        .ok_or(AuctionHouseError::NumericalOverflow)?)
+}
+
+pub fn pay_auction_house_fees<'a>(
+    auction_house: &anchor_lang::prelude::Account<'a, AuctionHouse>,
+    auction_house_treasury: &AccountInfo<'a>,
+    escrow_payment_account: &AccountInfo<'a>,
+    token_program: &AccountInfo<'a>,
+    system_program: &AccountInfo<'a>,
+    signer_seeds: &[&[u8]],
+    size: u64,
+    is_native: bool,
+) -> Result<u64> {
+    let fees = auction_house.seller_fee_basis_points;
+    let total_fee = (fees as u128)
+        .checked_mul(size as u128)
+        .ok_or(AuctionHouseError::NumericalOverflow)?
+        .checked_div(10000)
+        .ok_or(AuctionHouseError::NumericalOverflow)? as u64;
+
+    if !is_native {
+        invoke_signed(
+            &spl_token::instruction::transfer(
+                token_program.key,
+                escrow_payment_account.key,
+                auction_house_treasury.key,
+                &auction_house.key(),
+                &[],
+                total_fee,
+            )?,
+            &[
+                escrow_payment_account.clone(),
+                auction_house_treasury.clone(),
+                auction_house.to_account_info(),
+                token_program.clone(),
+            ],
+            &[signer_seeds],
+        )?;
+    } else {
+        invoke_signed(
+            &system_instruction::transfer(
+                escrow_payment_account.key,
+                auction_house_treasury.key,
+                total_fee,
+            ),
+            &[
+                escrow_payment_account.clone(),
+                auction_house_treasury.clone(),
+                system_program.clone(),
+            ],
+            &[signer_seeds],
+        )?;
+    }
+
+    Ok(total_fee)
 }

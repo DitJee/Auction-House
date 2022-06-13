@@ -43,4 +43,16 @@ pub enum AuctionHouseError {
 
     #[msg("NumericalOverflow")]
     NumericalOverflow,
+
+    #[msg("Cannot match free sales unless the auction house or seller signs off")]
+    CannotMatchFreeSalesWithoutAuctionHouseOrSellerSignoff,
+
+    #[msg("Both parties need to agree to this sale")]
+    BothPartiesNeedToAgreeToSale,
+
+    #[msg("Seller ata cannot have a delegate set")]
+    SellerATACannotHaveDelegate,
+
+    #[msg("Buyer ata cannot have a delegate set")]
+    BuyerATACannotHaveDelegate,
 }

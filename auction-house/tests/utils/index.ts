@@ -21,6 +21,7 @@ import {
 } from "./constants";
 import {
   AuctionHouseObject,
+  BuyAuctionHouseArgs,
   CreateAuctionHouseArgs,
   SellAuctionHouseArgs,
 } from "./interfaces";
@@ -28,6 +29,7 @@ import { Program } from "@project-serum/anchor";
 import {
   getAtaForMint,
   getAuctionHouse,
+  getAuctionHouseBuyerEscrow,
   getAuctionHouseFeeAccount,
   getAuctionHouseProgramAsSigner,
   getAuctionHouseTradeState,
@@ -38,10 +40,13 @@ import {
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddress,
+  createApproveInstruction,
+  createRevokeInstruction,
 } from "@solana/spl-token";
 import { BN } from "bn.js";
 import { getPriceWithMantissa } from "./misc";
 import { base58_to_binary } from "base58-js";
+import { token } from "@project-serum/anchor/dist/cjs/utils";
 
 const loadAuctionHouseProgram = async (
   walletKeyPair: Keypair,
@@ -548,10 +553,198 @@ export const sell = async (args: SellAuctionHouseArgs) => {
       mintAddress: mint,
       price: buyPrice,
       account: auctionHouse,
+      tokenAccountKey,
     };
     return output;
   } catch (error) {
     console.log("error in [sell] =>", error.message);
     console.error("error in [sell] =>", error);
   }
+};
+
+export const buy = async (args: BuyAuctionHouseArgs) => {
+  const {
+    keypair,
+    env,
+    auctionHouse,
+    auctionHouseKeypair,
+    buyPrice,
+    mint,
+    tokenSize,
+    tokenAccount,
+  } = args;
+
+  const auctionHouseKey = new anchor.web3.PublicKey(auctionHouse);
+  const walletKeyPair = loadWalletKey(keypair.secretKey);
+
+  const mintKey = new anchor.web3.PublicKey(mint);
+
+  console.log("[buy] || auctionHouseKey => ", auctionHouseKey.toBase58());
+  console.log("[buy] || walletKeyPair => ", walletKeyPair.publicKey.toBase58());
+  console.log("[buy] || mintKey => ", mintKey.toBase58());
+
+  const auctionHouseKeypairLoaded = auctionHouseKeypair
+    ? loadWalletKey(auctionHouseKeypair.secretKey)
+    : (null as any);
+
+  const anchorProgram = await loadAuctionHouseProgram(walletKeyPair, env);
+  const auctionHouseObj = (await anchorProgram.account.auctionHouse.fetch(
+    auctionHouseKey
+  )) as AuctionHouseObject;
+
+  if (auctionHouseKeypair) {
+    console.log(
+      "[buy] || auctionHouseKeypairLoaded => ",
+      auctionHouseKeypairLoaded.publicKey.toBase58()
+    );
+  }
+
+  console.log("[buy] || auctionHouseObj => ", auctionHouseObj);
+
+  const buyPriceAdjusted = new BN(
+    await getPriceWithMantissa(
+      buyPrice,
+      auctionHouseObj.treasuryMint,
+      walletKeyPair,
+      anchorProgram
+    )
+  );
+
+  const tokenSizeAdjusted = new BN(
+    await getPriceWithMantissa(tokenSize, mintKey, walletKeyPair, anchorProgram)
+  );
+
+  console.log("[buy] || buyPriceAdjusted => ", buyPriceAdjusted);
+  console.log("[buy] || tokenSizeAdjusted => ", tokenSizeAdjusted);
+
+  const [escrowPaymentAccount, escrowPaymentAccountBump] =
+    await getAuctionHouseBuyerEscrow(auctionHouseKey, walletKeyPair.publicKey);
+
+  const results =
+    await anchorProgram.provider.connection.getTokenLargestAccounts(mintKey);
+
+  const tokenAccountKey = tokenAccount
+    ? new anchor.web3.PublicKey(tokenAccount)
+    : results.value[0].address;
+
+  const [tradeStateAddress, tradeStateBump] = await getAuctionHouseTradeState({
+    auctionHouse: auctionHouseKey,
+    wallet: walletKeyPair.publicKey,
+    tokenAccount: tokenAccountKey,
+    treasuryMint: auctionHouseObj.treasuryMint,
+    tokenMint: mintKey,
+    tokenSize: tokenSizeAdjusted,
+    buyPrice: buyPriceAdjusted,
+  });
+
+  console.log(
+    "[buy] || [escrowPaymentAccount, escrowPaymentAccountBump] => ",
+    escrowPaymentAccount.toBase58(),
+    escrowPaymentAccountBump
+  );
+  console.log("[buy] || results => ", results.value[0]);
+  console.log("[buy] || tokenAccountKey => ", tokenAccountKey.toBase58());
+  console.log(
+    "[buy] || [tradeStateAddress, tradeStateBump] => ",
+    tradeStateAddress.toBase58(),
+    tradeStateBump
+  );
+
+  const isNative = auctionHouseObj.treasuryMint.equals(WRAPPED_SOL_MINT);
+
+  const ata = (
+    await getAtaForMint(auctionHouseObj.treasuryMint, walletKeyPair.publicKey)
+  )[0];
+
+  const transferAuthority = anchor.web3.Keypair.generate();
+  const signers = isNative ? [] : [transferAuthority];
+
+  console.log("[buy] || isNative => ", isNative);
+  console.log("[buy] || ata => ", ata.toBase58());
+  console.log("[buy] || signers => ", signers);
+
+  // NOTE: execute `buy` instruction
+  const instruction: anchor.web3.TransactionInstruction =
+    await anchorProgram.methods
+      .buy(
+        tradeStateBump,
+        escrowPaymentAccountBump,
+        buyPriceAdjusted,
+        tokenSizeAdjusted
+      )
+      .accounts({
+        wallet: walletKeyPair.publicKey,
+        paymentAccount: isNative ? walletKeyPair.publicKey : ata,
+        transferAuthority: isNative
+          ? anchor.web3.SystemProgram.programId
+          : transferAuthority.publicKey,
+        treasuryMint: auctionHouseObj.treasuryMint,
+        tokenAccount: tokenAccountKey,
+        metadata: (await getMetadata(mintKey))[0],
+        authority: auctionHouseObj.authority,
+        escrowPaymentAccount: escrowPaymentAccount,
+        auctionHouse: auctionHouse,
+        auctionHouseFeeAccount: auctionHouseObj.auctionHouseFeeAccount,
+        buyerTradeState: tradeStateAddress,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      })
+      .instruction();
+
+  console.log("[buy] || instruction => ", instruction);
+
+  if (auctionHouseKeypairLoaded) {
+    signers.push(auctionHouseKeypairLoaded);
+
+    instruction.keys
+      .filter((key) => key.pubkey.equals(auctionHouseKeypairLoaded.publicKey))
+      .map((key) => (key.isSigner = true));
+  }
+
+  if (!isNative) {
+    instruction.keys
+      .filter((key) => key.pubkey.equals(transferAuthority.publicKey))
+      .map((key) => (key.isSigner = true));
+  }
+
+  const instructions = [
+    ...(isNative
+      ? []
+      : [
+          createApproveInstruction(
+            ata,
+            transferAuthority.publicKey,
+            walletKeyPair.publicKey,
+            buyPriceAdjusted.toNumber(),
+            [],
+            TOKEN_PROGRAM_ID
+          ),
+        ]),
+    instruction,
+    ...(isNative
+      ? []
+      : [
+          createRevokeInstruction(
+            ata,
+            walletKeyPair.publicKey,
+            [],
+            TOKEN_PROGRAM_ID
+          ),
+        ]),
+  ];
+
+  const { txid, slot } = await sendTransactionWithRetryWithKeypair({
+    commitment: "max",
+    connection: anchorProgram.provider.connection,
+    wallet: walletKeyPair,
+    instructions: instructions,
+    signers: signers,
+    includeFeePayer: false,
+  });
+
+  console.log("[buy] || { txid, slot } ", { txid, slot });
+
+  console.log("[buy] || Made offer for ", buyPrice);
+  return buyPrice;
 };

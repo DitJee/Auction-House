@@ -2,6 +2,7 @@ import * as anchor from "@project-serum/anchor";
 import {
   AUCTION_HOUSE,
   AUCTION_HOUSE_PROGRAM_ID,
+  AUCTION_HOUSE_PROGRAM_ID_STRING,
   FEE_PAYER,
   METADATA,
   SIGNER,
@@ -405,4 +406,17 @@ const confirmSignatureStatuses = async (
       console.error("REST connection error: txid", txid, error);
     }
   }
+};
+
+export const getAuctionHouseBuyerEscrow = async (
+  auctionHouse: anchor.web3.PublicKey,
+  wallet: anchor.web3.PublicKey
+): Promise<[PublicKey, number]> => {
+  const auctionHouseBuyerEscrowAddress: [PublicKey, number] =
+    await anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from(AUCTION_HOUSE), auctionHouse.toBuffer(), wallet.toBuffer()],
+      AUCTION_HOUSE_PROGRAM_ID
+    );
+
+  return auctionHouseBuyerEscrowAddress;
 };

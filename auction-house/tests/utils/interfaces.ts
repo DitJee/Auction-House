@@ -81,3 +81,14 @@ export type SignedTransactionArgs = {
   successMessage?: string;
   timeout?: number;
 };
+
+export type BuyAuctionHouseArgs = {
+  keypair: Keypair;
+  env: string;
+  auctionHouse: anchor.web3.PublicKey;
+  auctionHouseKeypair: anchor.web3.Keypair;
+  buyPrice: number;
+  mint: anchor.web3.PublicKey;
+  tokenSize: number;
+  tokenAccount: anchor.web3.PublicKey;
+};

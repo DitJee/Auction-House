@@ -2,6 +2,7 @@
 pub mod bid;
 pub mod constant;
 pub mod errors;
+pub mod execute_sale;
 pub mod sell;
 pub mod state;
 mod utils;
@@ -9,6 +10,7 @@ mod utils;
 use crate::bid::*;
 use crate::constant::*;
 use crate::error::*;
+use crate::execute_sale::*;
 use crate::sell::*;
 use crate::state::*;
 use crate::utils::*;
@@ -166,6 +168,24 @@ pub mod auction_house {
             token_size,
         )
     }
+
+    pub fn execute_sale<'info>(
+        ctx: Context<'_, '_, '_, 'info, ExecuteSale<'info>>,
+        escrow_payment_bump: u8,
+        _free_trade_state_bump: u8,
+        program_as_signer_bump: u8,
+        buyer_price: u64,
+        token_size: u64,
+    ) -> Result<()> {
+        execute_sale::execute_sale(
+            ctx,
+            escrow_payment_bump,
+            _free_trade_state_bump,
+            program_as_signer_bump,
+            buyer_price,
+            token_size,
+        )
+    }
 }
 
 #[derive(Accounts)]
@@ -178,7 +198,7 @@ pub struct CreateAuctionHouse<'info> {
     #[account(mut @ errors::AuctionHouseError::NotMutableAccount) ]
     pub payer: Signer<'info>,
 
-    /// CHECK: User can use whatever they want for intialization.
+    /// CHECK: User can use whatever they want for intializaanchor deployttion.
     /// Authority key for the Auction House
     pub authority: UncheckedAccount<'info>,
 

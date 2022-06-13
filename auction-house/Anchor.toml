@@ -15,3 +15,4 @@ wallet = "/home/jee/.config/solana/id.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+deploy_w_idl = "anchor build && anchor deploy && anchor idl upgrade --filepath target/idl/auction_house.json Er4qqGJpN9CkQWeUp1P87aWYzkCqd4NbbKi8vtoNfPUJ"

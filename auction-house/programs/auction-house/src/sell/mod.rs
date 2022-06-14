@@ -1,5 +1,6 @@
 use anchor_lang::{prelude::*, solana_program::program::invoke, AnchorDeserialize};
 use anchor_spl::token::{Token, TokenAccount};
+use solana_program::program_memory::sol_memset;
 use spl_token::instruction::approve;
 
 use crate::constant::*;
@@ -229,7 +230,7 @@ pub fn sell_logic<'info>(
         ];
 
         create_or_allocate_account_raw(
-            *program_id,
+            crate::id(),
             &ts_info,
             &rent.to_account_info(),
             system_program,
@@ -238,10 +239,16 @@ pub fn sell_logic<'info>(
             fee_seeds,
             &ts_seeds,
         )?;
+
+        sol_memset(
+            *ts_info.try_borrow_mut_data()?,
+            trade_state_bump,
+            TRADE_STATE_SIZE,
+        );
     }
 
-    let data = &mut ts_info.data.borrow_mut();
-    data[0] = trade_state_bump;
+    // let data = &mut ts_info.data.borrow_mut();
+    // data[0] = trade_state_bump;
 
     Ok(())
 }

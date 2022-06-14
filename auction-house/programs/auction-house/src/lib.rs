@@ -174,6 +174,7 @@ pub mod auction_house {
         escrow_payment_bump: u8,
         _free_trade_state_bump: u8,
         program_as_signer_bump: u8,
+        seller_trade_state_bump: u8,
         buyer_price: u64,
         token_size: u64,
     ) -> Result<()> {

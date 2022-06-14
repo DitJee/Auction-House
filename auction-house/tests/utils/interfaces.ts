@@ -105,3 +105,17 @@ export type ExecuteSaleAuctionHouseArgs = {
   buyerWallet: anchor.web3.PublicKey;
   sellerWallet: anchor.web3.PublicKey;
 };
+
+export type remainingCreatorAccounts = {
+  pubkey: anchor.web3.PublicKey;
+  isWritable: boolean;
+  isSigner: boolean;
+};
+
+export type PurchaseReceipt = {
+  mintAddress: anchor.web3.PublicKey;
+  fromWallet: anchor.web3.PublicKey;
+  toWallet: anchor.web3.PublicKey;
+  price: number;
+  auctionHouseAccount: anchor.web3.PublicKey;
+};

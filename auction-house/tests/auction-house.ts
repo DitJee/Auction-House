@@ -158,7 +158,27 @@ describe("auction-house", () => {
         sellerWallet: jeeKeypair.publicKey,
       };
 
-      await executeSale(executeSaleArgs);
+      const { mintAddress, fromWallet, toWallet, price, auctionHouseAccount } =
+        await executeSale(executeSaleArgs);
+
+      console.log(
+        "[executeSale] || RECEIPT => mintAddress",
+        mintAddress.toBase58()
+      );
+
+      console.log(
+        "[executeSale] || RECEIPT => fromWallet",
+        fromWallet.toBase58()
+      );
+
+      console.log("[executeSale] || RECEIPT =>toWallet ", toWallet.toBase58());
+
+      console.log("[executeSale] || RECEIPT =>  price ", price);
+
+      console.log(
+        "[executeSale] || RECEIPT =>  auctionHouseAccount ",
+        auctionHouseAccount.toBase58()
+      );
     } catch (error) {
       console.log("error in execute_sale test => ", error.message);
       console.error("error in execute_sale test => ", error);

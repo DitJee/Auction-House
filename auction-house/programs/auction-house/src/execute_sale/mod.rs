@@ -8,6 +8,7 @@ use crate::{constant::*, errors::*, utils::*, AuctionHouse, AuthorityScope, *};
     escrow_payment_bump: u8,
     free_trade_state_bump: u8,
     program_as_signer_bump: u8,
+    seller_trade_state_bump: u8,
     buyer_price: u64,
     token_size: u64
 )]
@@ -114,20 +115,7 @@ pub struct ExecuteSale<'info> {
 
     /// CHECK: Not dangerous. Validate via seeds check.
     /// Seller trade state PDA account encoding the sell order.
-    #[account(
-        mut,
-        seeds = [
-            PREFIX.as_bytes(),
-            seller.key().as_ref(),
-            auction_house.key().as_ref(),
-            token_account.key().as_ref(),
-            auction_house.treasury_mint.as_ref(),
-            token_mint.key().as_ref(),
-            &buyer_price.to_le_bytes(),
-            &token_size.to_le_bytes()
-        ],
-        bump = seller_trade_state.to_account_info().data.borrow()[0]
-    )]
+    #[account(mut)]
     pub seller_trade_state: UncheckedAccount<'info>,
 
     /// CHECK: Not dangerous. Validate via seeds check.

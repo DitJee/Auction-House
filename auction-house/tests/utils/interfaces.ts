@@ -119,3 +119,15 @@ export type PurchaseReceipt = {
   price: number;
   auctionHouseAccount: anchor.web3.PublicKey;
 };
+
+export type CancelAuctionHouseArgs = {
+  keypair: Keypair;
+  env: string;
+  auctionHouse: anchor.web3.PublicKey;
+  auctionHouseKeypair: anchor.web3.Keypair;
+  buyPrice: number;
+  mint: anchor.web3.PublicKey;
+  tokenSize: number;
+  auctionHouseSigns: boolean;
+  sellerWalletKeypair: anchor.web3.Keypair;
+};

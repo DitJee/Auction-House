@@ -5,6 +5,7 @@ pub mod errors;
 pub mod execute_sale;
 pub mod sell;
 pub mod state;
+pub mod cancel;
 mod utils;
 
 use crate::bid::*;
@@ -14,6 +15,7 @@ use crate::execute_sale::*;
 use crate::sell::*;
 use crate::state::*;
 use crate::utils::*;
+use crate::cancel::*;
 
 use anchor_lang::{
     prelude::*,
@@ -186,6 +188,15 @@ pub mod auction_house {
             buyer_price,
             token_size,
         )
+    }
+
+    /// Cancel a bid or ask by revoking the token delegate, transferring all lamports from the trade state account to the fee payer, and setting the trade state account data to zero so it can be garbage collected.
+    pub fn cancel<'info> (
+        ctx: Context<'_, '_, '_, 'info, Cancel<'info>>,
+        buyer_price: u64,
+        token_size: u64
+    ) -> Result<()> {
+        cancel::cancel(ctx, buyer_price, token_size)
     }
 }
 

@@ -55,4 +55,7 @@ pub enum AuctionHouseError {
 
     #[msg("Buyer ata cannot have a delegate set")]
     BuyerATACannotHaveDelegate,
+
+    #[msg("No valid signer present")]
+    NoValidSignerPresent,
 }

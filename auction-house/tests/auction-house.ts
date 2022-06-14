@@ -5,6 +5,7 @@ import { expect } from "chai";
 import { AuctionHouse } from "../target/types/auction_house";
 import {
   buy,
+  cancel,
   createAuctionHouse,
   executeSale,
   sell,
@@ -14,15 +15,18 @@ import { addSOLToWallet } from "./utils/account";
 import {
   loadWalletKey,
   MINT_ADDRESS_AMONGUS,
+  MINT_ADDRESS_FLOWA,
   MINT_ADDRESS_FLOWER_FIELD,
 } from "./utils/constants";
 import {
   BuyAuctionHouseArgs,
+  CancelAuctionHouseArgs,
   ExecuteSaleAuctionHouseArgs,
   SellAuctionHouseArgs,
 } from "./utils/interfaces";
 
 import { base58_to_binary } from "base58-js";
+import { sleep } from "./utils/misc";
 
 let auctionHouse: anchor.web3.PublicKey;
 let _keypair: anchor.web3.Keypair;
@@ -161,6 +165,7 @@ describe("auction-house", () => {
       const { mintAddress, fromWallet, toWallet, price, auctionHouseAccount } =
         await executeSale(executeSaleArgs);
 
+      //#region summary logs
       console.log(
         "[executeSale] || RECEIPT => mintAddress",
         mintAddress.toBase58()
@@ -179,9 +184,66 @@ describe("auction-house", () => {
         "[executeSale] || RECEIPT =>  auctionHouseAccount ",
         auctionHouseAccount.toBase58()
       );
+      //#endregion
     } catch (error) {
       console.log("error in execute_sale test => ", error.message);
       console.error("error in execute_sale test => ", error);
+    }
+  });
+
+  it("should create, sell, buy, and cancel the bidding", async () => {
+    try {
+      // NOTE: sell the NFT
+      const sellArgs: SellAuctionHouseArgs = {
+        keypair: jeeKeypair,
+        env: env,
+        auctionHouse: auctionHouse,
+        auctionHouseKeypair: null,
+        buyPrice: 1,
+        mint: MINT_ADDRESS_FLOWA,
+        tokenSize: 1,
+        auctionHouseSigns: false,
+      };
+      const { mintAddress, price, account, tokenAccountKey } = await sell(
+        sellArgs
+      );
+
+      tokenAccount = tokenAccountKey;
+
+      // NOTE: set buy order
+      await addSOLToWallet(buyerKeypair);
+      const buyArgs: BuyAuctionHouseArgs = {
+        keypair: buyerKeypair,
+        env: env,
+        auctionHouse: auctionHouse,
+        auctionHouseKeypair: null,
+        buyPrice: 1,
+        mint: MINT_ADDRESS_FLOWA,
+        tokenSize: 1,
+        tokenAccount: tokenAccount,
+      };
+
+      await buy(buyArgs);
+
+      // await sleep(20000);
+
+      // NOTE: cancel the buy order
+      const cancelArgs: CancelAuctionHouseArgs = {
+        keypair: buyerKeypair,
+        env: env,
+        auctionHouse: auctionHouse,
+        auctionHouseKeypair: null,
+        buyPrice: 1,
+        mint: MINT_ADDRESS_FLOWA,
+        tokenSize: 1,
+        auctionHouseSigns: false,
+        sellerWalletKeypair: jeeKeypair,
+      };
+
+      await cancel(cancelArgs);
+    } catch (error) {
+      console.log("error message in cancel test => ", error.message);
+      console.error("error in cancel test => ", error);
     }
   });
 });

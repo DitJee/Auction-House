@@ -22,6 +22,7 @@ import {
 import {
   AuctionHouseObject,
   BuyAuctionHouseArgs,
+  CancelAuctionHouseArgs,
   CreateAuctionHouseArgs,
   ExecuteSaleAuctionHouseArgs,
   PurchaseReceipt,
@@ -1073,4 +1074,116 @@ export const executeSale = async (
     price: buyPriceAdjusted.toNumber(),
   };
   return purchaseReceipt;
+};
+
+export const cancel = async (
+  args: CancelAuctionHouseArgs
+): Promise<{ txid: string; slot: number }> => {
+  const {
+    keypair,
+    env,
+    auctionHouse,
+    auctionHouseKeypair,
+    buyPrice,
+    mint,
+    tokenSize,
+    auctionHouseSigns,
+    sellerWalletKeypair,
+  } = args;
+
+  const auctionHouseKey = new anchor.web3.PublicKey(auctionHouse);
+  const walletKeyPair = loadWalletKey(keypair.secretKey);
+  const mintKey = new anchor.web3.PublicKey(mint);
+
+  console.log("[cancel] || auctionHouseKey => ", auctionHouseKey.toBase58());
+  console.log(
+    "[cancel] || walletKeyPair => ",
+    walletKeyPair.publicKey.toBase58()
+  );
+  console.log("[cancel] || mintKey => ", mintKey.toBase58());
+
+  const auctionHouseKeypairLoaded = auctionHouseKeypair
+    ? loadWalletKey(auctionHouseKeypair.secretKey)
+    : (null as any);
+
+  const anchorProgram = await loadAuctionHouseProgram(
+    auctionHouseSigns ? auctionHouseKeypairLoaded : walletKeyPair,
+    env
+  );
+
+  const auctionHouseObj = (await anchorProgram.account.auctionHouse.fetch(
+    auctionHouseKey
+  )) as AuctionHouseObject;
+
+  const buyPriceAdjusted = new BN(
+    await getPriceWithMantissa(
+      buyPrice,
+      auctionHouseObj.treasuryMint,
+      walletKeyPair,
+      anchorProgram
+    )
+  );
+
+  const tokenSizeAdjusted = new BN(
+    await getPriceWithMantissa(tokenSize, mintKey, walletKeyPair, anchorProgram)
+  );
+
+  const tokenAccountKey: anchor.web3.PublicKey =
+    await getAssociatedTokenAddress(mintKey, sellerWalletKeypair.publicKey);
+
+  const tradeState = (
+    await getAuctionHouseTradeState({
+      auctionHouse: auctionHouseKey,
+      buyPrice: buyPriceAdjusted,
+      tokenAccount: tokenAccountKey,
+      tokenMint: mintKey,
+      tokenSize: tokenSizeAdjusted,
+      treasuryMint: auctionHouseObj.treasuryMint,
+      wallet: walletKeyPair.publicKey,
+    })
+  )[0];
+
+  const signers: Keypair[] = [];
+
+  const instruction = await anchorProgram.methods
+    .cancel(buyPriceAdjusted, tokenSizeAdjusted)
+    .accounts({
+      wallet: walletKeyPair.publicKey,
+      tokenAccount: tokenAccountKey,
+      tokenMint: mintKey,
+      authority: auctionHouseObj.authority,
+      auctionHouse: auctionHouseKey,
+      auctionHouseFeeAccount: auctionHouseObj.auctionHouseFeeAccount,
+      tradeState: tradeState,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    })
+    .signers(signers)
+    .instruction();
+
+  if (auctionHouseKeypairLoaded) {
+    signers.push(auctionHouseKeypairLoaded);
+
+    instruction.keys
+      .filter((k) => k.pubkey.equals(auctionHouseKeypairLoaded.publicKey))
+      .map((k) => (k.isSigner = true));
+  }
+
+  if (!auctionHouseSigns) {
+    instruction.keys
+      .filter((k) => k.pubkey.equals(walletKeyPair.publicKey))
+      .map((k) => (k.isSigner = true));
+  }
+
+  const { txid, slot } = await sendTransactionWithRetryWithKeypair({
+    commitment: "max",
+    connection: anchorProgram.provider.connection,
+    includeFeePayer: false,
+    instructions: [instruction],
+    signers: signers,
+    wallet: auctionHouseSigns ? auctionHouseKeypairLoaded : walletKeyPair,
+  });
+
+  console.log("[cancel] || { txid, slot } => ", { txid, slot });
+
+  return { txid, slot };
 };

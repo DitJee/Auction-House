@@ -28,6 +28,7 @@ import {
   PurchaseReceipt,
   remainingCreatorAccounts,
   SellAuctionHouseArgs,
+  ShowEscrowArgs,
 } from "./interfaces";
 import { Program } from "@project-serum/anchor";
 import {
@@ -1186,4 +1187,29 @@ export const cancel = async (
   console.log("[cancel] || { txid, slot } => ", { txid, slot });
 
   return { txid, slot };
+};
+
+export const showEscrow = async (args: ShowEscrowArgs) => {
+  const { auctionHouse, env, keypair } = args;
+
+  const wallet = loadWalletKey(keypair.secretKey);
+  const anchorProgram = await loadAuctionHouseProgram(wallet, env);
+  const auctionHouseKey = new anchor.web3.PublicKey(auctionHouse);
+  const auctionHouseObj = (await anchorProgram.account.auctionHouse.fetch(
+    auctionHouseKey
+  )) as AuctionHouseObject;
+
+  const escrow = (
+    await getAuctionHouseBuyerEscrow(auctionHouseKey, wallet.publicKey)
+  )[0];
+
+  const amount = await getTokenAmount(
+    anchorProgram,
+    escrow,
+    auctionHouseObj.treasuryMint
+  );
+
+  console.log(
+    `[showEscrow] The tokens residing in escrow ${escrow.toBase58()} are ${amount}`
+  );
 };

@@ -131,3 +131,9 @@ export type CancelAuctionHouseArgs = {
   auctionHouseSigns: boolean;
   sellerWalletKeypair: anchor.web3.Keypair;
 };
+
+export type ShowEscrowArgs = {
+  keypair: Keypair;
+  env: string;
+  auctionHouse: anchor.web3.PublicKey;
+};

@@ -10,6 +10,7 @@ import {
   executeSale,
   sell,
   showAuctionHouse,
+  showEscrow,
 } from "./utils";
 import { addSOLToWallet } from "./utils/account";
 import {
@@ -244,6 +245,24 @@ describe("auction-house", () => {
     } catch (error) {
       console.log("error message in cancel test => ", error.message);
       console.error("error in cancel test => ", error);
+    }
+  });
+
+  it("should show all escrow from each bidder's wallets", async () => {
+    try {
+      await showEscrow({
+        auctionHouse,
+        env,
+        keypair: jeeKeypair,
+      });
+      await showEscrow({
+        auctionHouse,
+        env,
+        keypair: buyerKeypair,
+      });
+    } catch (error) {
+      console.log("error message in show escrow test => ", error.message);
+      console.error("error in show escrow test => ", error);
     }
   });
 });
